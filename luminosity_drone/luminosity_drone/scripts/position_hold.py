@@ -37,18 +37,18 @@ class swift():
 
 		# This corresponds to your current position of drone. This value must be updated each time in your whycon callback
 		# [x,y,z]
-		self.drone_position = [0.0,0.0,0.0]	
+		self.drone_position = [0.0,0.0,0.0]
 
 		# [x_setpoint, y_setpoint, z_setpoint]
-		self.setpoint = [0,0,5] # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
+		self.setpoint = [2,2,20] # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
 
 
 		#Declaring a cmd of message type swift_msgs and initializing values
 		self.cmd = swift_msgs()
-		self.cmd.rcRoll = 1590
-		self.cmd.rcPitch = 1590
-		self.cmd.rcYaw = 1590
-		self.cmd.rcThrottle = 1590
+		self.cmd.rcRoll = 1500
+		self.cmd.rcPitch = 1500
+		self.cmd.rcYaw = 1500
+		self.cmd.rcThrottle = 1500
 		self.cmd.rcAUX1 = 0
 		self.cmd.rcAUX2 = 0
 		self.cmd.rcAUX3 = 0
@@ -58,9 +58,9 @@ class swift():
 		#initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
 		#after tuning and computing corresponding PID parameters, change the parameters
 
-		self.Kp = [0, 0, 0]
-		self.Ki = [0, 0, 0]
-		self.Kd = [0, 0, 0]
+		self.Kp = [0, 16, 140]
+		self.Ki = [0, 0, 3]
+		self.Kd = [0, 1600, 1026]
    
 		#-----------------------Add other required variables for pid here ----------------------------------------------
 		self.error=[0.0,0.0,0.0]	#[x,y,z]
@@ -104,8 +104,8 @@ class swift():
 		rospy.Subscriber('whycon/poses', PoseArray, self.whycon_callback)
 		rospy.Subscriber('/pid_tuning_altitude',PidTune,self.altitude_set_pid)
 		#-------------------------Add other ROS Subscribers here----------------------------------------------------
-		#rospy.Subscriber('pid_tuning_roll',PidTune,self.roll_set_pid)
-		#rospy.Subscriber('/pid_tuning_pitch', PidTune, self.pitch_set_pid)
+		rospy.Subscriber('pid_tuning_roll',PidTune,self.roll_set_pid)
+		rospy.Subscriber('/pid_tuning_pitch', PidTune, self.pitch_set_pid)
 
 
 
@@ -153,7 +153,7 @@ class swift():
 		self.drone_position[1] = msg.poses[0].position.y
 		self.drone_position[2] = msg.poses[0].position.z
 	
-		print("POSITION Z",msg.poses[0].position.z , "throttle",self.cmd.rcThrottle)
+		print("POSITION Z",msg.poses[0].position.z , "\nthrottle",self.cmd.rcThrottle)
 
 
 	
@@ -164,11 +164,21 @@ class swift():
 	# Callback function for /pid_tuning_altitude
 	# This function gets executed each time when /tune_pid publishes /pid_tuning_altitude
 	def altitude_set_pid(self,alt):
-		self.Kp[2] = alt.Kp * 0.6 # This is just for an example. You can change the ratio/fraction value accordingly
-		self.Ki[2] = alt.Ki * 0.08
-		self.Kd[2] = alt.Kd * 0.3
+		self.Kp[2] = alt.Kp * 0.6 # #66 This is just for an example. You can change the ratio/fraction value accordingly
+		self.Ki[2] = alt.Ki * 0.0008 #2
+		self.Kd[2] = alt.Kd * 0.3 # 2140
 		
 	#----------------------------Define callback function like altitide_set_pid to tune pitch, roll--------------
+	def pitch_set_pid(self,pitch):
+		self.Kp[1] = pitch.Kp * 0.6
+		self.Ki[1] = pitch.Ki * 0.0008
+		self.Kd[1] = pitch.Kd * 0.6
+
+	def roll_set_pid(self,roll):
+		self.Kp[0] = roll.Kp * 0.6
+		self.Ki[0] = roll.Ki * 0.0008
+		self.Kd[0] = roll.Kd * 0.6
+
 
 
 
@@ -199,25 +209,30 @@ class swift():
 		#	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
 		#	8. Add error_sum
 
-		self.error[0] = self.drone_position[0] - self.setpoint[0]
+		self.error[0] = -(self.drone_position[0] - self.setpoint[0])
 		self.error[1] = self.drone_position[1] - self.setpoint[1]
 		self.error[2] = self.drone_position[2] - self.setpoint[2]
 
+
+		#.................FOR THROTTLE.................
+
+
 		# Calculate PID terms
     	# Proportional term
-		P = self.error[2] * self.Kp[2]
+		Pt = self.error[2] * self.Kp[2]
 
     	# Integral term (accumulated error)
+		It= self.sum_error[2] * self.Ki[2]
 		self.sum_error[2] += self.error[2]
-		I= self.sum_error[2] * self.Ki[2]
 
     	# Derivative term (rate of change of error)
-		D = (self.error[2] - self.prev_error[2]) * self.Kd[2]
-
-		print(P  ,I, D )
+		Dt = (self.error[2] - self.prev_error[2]) * self.Kd[2]
+		print("......\n")
+		print("Pt;",Pt,"\nIt;",It,"\nDt:", Dt )
 
     	# Calculate the throttle command
-		self.cmd.rcThrottle = int(1587 + P + I + D)
+		self.cmd.rcThrottle = int(1500 + Pt + It + Dt)
+
 
     # Limit the throttle command within the specified range
 		if self.cmd.rcThrottle > 2000:
@@ -227,20 +242,68 @@ class swift():
 
     	# Update previous error for the z-axis
 		self.prev_error[2] = self.error[2]
-		print()
-		if int(self.drone_position[2])==20:
-			self.disarm()
+
+
+		#....................FOR ROLL...................
+
+		# Calculate PID terms
+    	# Proportional term
+		Pr = self.error[0] * self.Kp[0]
+
+    	# Integral term (accumulated error)
+		Ir= self.sum_error[0] * self.Ki[0]
+		self.sum_error[0] += self.error[0]
+
+    	# Derivative term (rate of change of error)
+		Dr = (self.error[0] - self.prev_error[0]) * self.Kd[0]
+		print("......\n")
+		print("Pr;",Pr,"\nIr;",Ir,"\nDr:", Dr )
+
+    	# Calculate the throttle command
+		self.cmd.rcRoll = int(1500+Pr + Ir + Dr)
+
+    # Limit the throttle command within the specified range
+		if self.cmd.rcRoll > 2000:
+			self.cmd.rcRoll = 2000
+		elif self.cmd.rcRoll < 1000:
+			self.cmd.rcRoll = 1000
+
+    	# Update previous error for the z-axis
+		self.prev_error[0] = self.error[0]
+
+		#....................FOR pITCH...................
+
+		# Calculate PID terms
+    	# Proportional term
+		Pp = self.error[1] * self.Kp[1]
+
+    	# Integral term (accumulated error)
+		Ip= self.sum_error[1] * self.Ki[1]
+		self.sum_error[1] += self.error[1]
+
+    	# Derivative term (rate of change of error)
+		Dp = (self.error[1] - self.prev_error[1]) * self.Kd[1]
+		print("......\n")
+		print("Pp;",Pp,"\nIp;",Ip,"\nDp:", Dp )
+
+    	# Calculate the throttle command
+		self.cmd.rcPitch = int(1500+Pp + Ip + Dp)
+
+    # Limit the throttle command within the specified range
+		if self.cmd.rcPitch > 2000:
+			self.cmd.rcPitch = 2000
+		elif self.cmd.rcPitch < 1000:
+			self.cmd.rcPitch = 1000
+
+    	# Update previous error for the z-axis
+		self.prev_error[1] = self.error[1]
 
 
 
-
-
-
-
-
-
+		self.cmd.rcYaw = 1500
 	#------------------------------------------------------------------------------------------------------------------------
 		self.command_pub.publish(self.cmd)
+		self.alt_error_pub.publish(self.error[2])
 		
 
 
@@ -252,13 +315,7 @@ class swift():
 if __name__ == '__main__':
 
 	swift_drone = swift()
-	
 	r = rospy.Rate(30) #specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
-	try:
-		while not rospy.is_shutdown():
-			swift_drone.pid()
-			r.sleep()
-	except rospy.exceptions as e:
-		print(e)
-		pass
-	rospy.spin()
+	while not rospy.is_shutdown():
+		swift_drone.pid()
+		r.sleep()
