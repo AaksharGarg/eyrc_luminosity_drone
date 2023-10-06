@@ -58,8 +58,8 @@ class swift():
 		#initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
 		#after tuning and computing corresponding PID parameters, change the parameters
 
-		self.Kp = [0, 16, 140]
-		self.Ki = [0, 0, 3]
+		self.Kp = [0, 15, 140]
+		self.Ki = [0, 1, 3]
 		self.Kd = [0, 1600, 1026]
    
 		#-----------------------Add other required variables for pid here ----------------------------------------------
@@ -171,7 +171,7 @@ class swift():
 	#----------------------------Define callback function like altitide_set_pid to tune pitch, roll--------------
 	def pitch_set_pid(self,pitch):
 		self.Kp[1] = pitch.Kp * 0.6
-		self.Ki[1] = pitch.Ki * 0.0008
+		self.Ki[1] = pitch.Ki * 0.00008
 		self.Kd[1] = pitch.Kd * 0.6
 
 	def roll_set_pid(self,roll):
@@ -222,7 +222,7 @@ class swift():
 		Pt = self.error[2] * self.Kp[2]
 
     	# Integral term (accumulated error)
-		It= self.sum_error[2] * self.Ki[2]
+		It= self.sum_error[2] * self.Ki[2]	
 		self.sum_error[2] += self.error[2]
 
     	# Derivative term (rate of change of error)
@@ -278,7 +278,7 @@ class swift():
 		Pp = self.error[1] * self.Kp[1]
 
     	# Integral term (accumulated error)
-		Ip= self.sum_error[1] * self.Ki[1]
+		Ip= self.sum_error[1]/100 * self.Ki[1]
 		self.sum_error[1] += self.error[1]
 
     	# Derivative term (rate of change of error)
