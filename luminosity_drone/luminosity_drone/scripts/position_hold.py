@@ -58,14 +58,16 @@ class swift():
 		#initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
 		#after tuning and computing corresponding PID parameters, change the parameters
 
-		self.Kp = [8, 15, 140]
-		self.Ki = [0.008, 1, 3]
-		self.Kd = [1.2, 1600, 1026]
+		self.Kp = [10, 20, 63]#8 15 63
+		self.Ki = [0.008, 2, 2]#0.008 1 2
+		self.Kd = [6.7, 6.7, 41]#1.2 3200 41
    
 		#-----------------------Add other required variables for pid here ----------------------------------------------
 		self.error=[0.0,0.0,0.0]	#[x,y,z]
 		self.prev_error=[0.0,0.0,0.0]	#[roll , pitch , throttle]
 		self.sum_error=[0.0,0.0,0.0]	#[roll , pitch , throttle]
+
+		self.prev_time = rospy.get_time()
 
 
 
@@ -92,6 +94,7 @@ class swift():
 		self.alt_error_pub = rospy.Publisher('/alt_error', Float64, queue_size=1)
 		self.pitch_error_pub = rospy.Publisher('/pitch_error', Float64, queue_size=1)
 		self.roll_error_pub = rospy.Publisher('/roll_error', Float64, queue_size=1)
+
 
 
 
@@ -167,17 +170,17 @@ class swift():
 		self.Kp[2] = alt.Kp * 0.6 # #66 This is just for an example. You can change the ratio/fraction value accordingly
 		self.Ki[2] = alt.Ki * 0.0008 #2
 		self.Kd[2] = alt.Kd * 0.3 # 2140
-		
+
 	#----------------------------Define callback function like altitide_set_pid to tune pitch, roll--------------
 	def pitch_set_pid(self,pitch):
-		self.Kp[1] = pitch.Kp * 0.6
-		self.Ki[1] = pitch.Ki * 0.00008
-		self.Kd[1] = pitch.Kd * 0.6
+		self.Kp[1] = pitch.Kp * 0.6 #0.6
+		self.Ki[1] = pitch.Ki * 0.0008 #0.0008
+		self.Kd[1] = pitch.Kd * 0.3 #0.3
 
 	def roll_set_pid(self,roll):
-		self.Kp[0] = roll.Kp * 0.6
+		self.Kp[0] = roll.Kp * 0.6 
 		self.Ki[0] = roll.Ki * 0.0008
-		self.Kd[0] = roll.Kd * 0.6
+		self.Kd[0] = roll.Kd * 0.3
 
 
 
@@ -215,6 +218,10 @@ class swift():
 
 
 		#.................FOR THROTTLE.................
+		current_time = rospy.get_time()  
+		dt = current_time - self.prev_time
+
+		self.prev_time = current_time
 
 
 		# Calculate PID terms
@@ -226,7 +233,7 @@ class swift():
 		self.sum_error[2] += self.error[2]
 
     	# Derivative term (rate of change of error)
-		Dt = (self.error[2] - self.prev_error[2]) * self.Kd[2]
+		Dt = (self.error[2] - self.prev_error[2])/dt * self.Kd[2]
 		print("......\n")
 		print("Pt;",Pt,"\nIt;",It,"\nDt:", Dt )
 
@@ -255,7 +262,7 @@ class swift():
 		self.sum_error[0] += self.error[0]
 
     	# Derivative term (rate of change of error)
-		Dr = (self.error[0] - self.prev_error[0]) * self.Kd[0]
+		Dr = (self.error[0] - self.prev_error[0])/dt * self.Kd[0]
 		print("......\n")
 		print("Pr;",Pr,"\nIr;",Ir,"\nDr:", Dr )
 
@@ -271,7 +278,7 @@ class swift():
     	# Update previous error for the z-axis
 		self.prev_error[0] = self.error[0]
 
-		#....................FOR pITCH...................
+		#....................FOR PITCH...................
 
 		# Calculate PID terms
     	# Proportional term
@@ -282,7 +289,7 @@ class swift():
 		self.sum_error[1] += self.error[1]
 
     	# Derivative term (rate of change of error)
-		Dp = (self.error[1] - self.prev_error[1]) * self.Kd[1]
+		Dp = (self.error[1] - self.prev_error[1])/dt * self.Kd[1]
 		print("......\n")
 		print("Pp;",Pp,"\nIp;",Ip,"\nDp:", Dp )
 
@@ -303,6 +310,7 @@ class swift():
 		self.cmd.rcYaw = 1500
 	#------------------------------------------------------------------------------------------------------------------------
 		self.command_pub.publish(self.cmd)
+
 		self.alt_error_pub.publish(self.error[2])
 		
 
