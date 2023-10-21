@@ -31,9 +31,7 @@
 					<origin xyz="-.043 0 0.0005" rpy="0 0 0"/>
 					<geometry>
 						<mesh filename="package://rotors_description/models/whycon_marker/meshes/whycon_marker.dae"/>
-	
 					</geometry>
-	
 				</visual>
 			</link>
 		</xacro:macro>

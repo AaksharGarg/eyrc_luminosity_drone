@@ -103,7 +103,7 @@
 						</box>
 					</geometry>
 				</visual>
-								<sensor type='camera' name='camera'>
+				<sensor type='camera' name='camera'>
 					<camera name='overhead_cam'>
 						<horizontal_fov>0.8</horizontal_fov>
 						<image>

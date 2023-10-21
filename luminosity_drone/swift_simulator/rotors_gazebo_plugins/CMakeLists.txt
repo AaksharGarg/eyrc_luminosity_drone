@@ -10,7 +10,7 @@
 
 cmake_minimum_required(VERSION 3.0.2)
 project(rotors_gazebo_plugins)
-add_compile_options(-std=c++17)
+
 #
 #if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR} )
 #  message( FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a build directory) and run CMake from there. You may need to remove CMakeCache.txt." )

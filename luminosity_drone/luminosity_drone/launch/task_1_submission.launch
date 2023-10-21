@@ -28,6 +28,6 @@
   <node name="rosbag_record_position_hold" pkg="rosbag" type="record"
        args="record -O $(find luminosity_drone)/scripts/$(arg rec_name) --duration=$(arg duration) --chunksize=10 /whycon/poses" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 
-  <node pkg="luminosity_drone" type="position_hold.py" name="position_hold"/> 
+  <node pkg="luminosity_drone" type="LD_2000_waypoint_navigation.py" name="waypoint_navigation"/> 
 </launch>
  
