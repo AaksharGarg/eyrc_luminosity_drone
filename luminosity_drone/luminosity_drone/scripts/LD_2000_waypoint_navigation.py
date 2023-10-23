@@ -58,8 +58,8 @@ class swift:
         # after tuning and computing corresponding PID parameters, change the parameters
 
 
-        self.Kp = [10, 20, 75]#8 15 70
-        self.Ki = [0.008, 2, 0.25]#0.008 1 2
+        self.Kp = [1, 20, 75]#8 15 70
+        self.Ki = [0.002, 2, 0.25]#0.008 1 2
         self.Kd = [6.7, 6.7, 21]#1.2 3200 34
 
         # -----------------------Add other required variables for pid here ----------------------------------------------
