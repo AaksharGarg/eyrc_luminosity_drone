@@ -27,14 +27,18 @@ from std_msgs.msg import Float64
 from pid_tune.msg import PidTune
 import rospy
 import time
-
-
+from led_detection import LEDDetector
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2
 class swift:
     """docstring for swift"""
 
     def __init__(self):
         rospy.init_node("drone_control")  # initializing ros node with name drone_control
 
+        self.bridge = CvBridge() # Creating an Instance of CV Bridge
+        self.image_sub =rospy.Subscriber("/swift/camera_rgb/image_raw",Image,self.image_callback) # Subsciber for the Image feed
         # This corresponds to your current position of drone. This value must be updated each time in your whycon callback
         # [x,y,z]
         self.drone_position = [0.0, 0.0, 0.0]
@@ -96,6 +100,11 @@ class swift:
 
         # ------------------------------------------------------------------------------------------------------------
         self.arm()  # ARMING THE DRONE
+
+    def image_callback(self,data):
+        self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")   # Converting Image to CV2 comatible datatype
+        led_detector = LEDDetector(self.cv_image)
+        cv2.waitKey(1)
 
     # Disarming condition of the drone
     def disarm(self):
@@ -166,6 +175,7 @@ class swift:
         # 																														self.cmd.rcPitch = self.max_values[1]
         # 	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
         # 	8. Add error_sum
+        
         if (abs(self.error[0])<=0.13 and abs(self.error[1])<=0.13 and abs(self.error[2])<=0.13):
             if len(self.setpoint)> (self.point_num+1):
                 self.point_num+=1

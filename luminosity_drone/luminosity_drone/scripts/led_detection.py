@@ -6,19 +6,23 @@ import imutils
 
 class LEDDetector:
     def __init__(self, image_path):
-        self.image = cv2.imread(image_path, 1)
+        self.image = image_path
+        cv2.imshow("1",self.image)
         self.contour_list = []
         self.area_list = []
+        self.process_image()
 
     def process_image(self):
         image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        cv2.imshow("2",image_gray)
         image_blur = cv2.GaussianBlur(image_gray, (11, 11), 0)
         thresh = cv2.threshold(image_blur, 200, 255, cv2.THRESH_BINARY)[1]
         thresh = cv2.erode(thresh, None, iterations=2)
         thresh = cv2.dilate(thresh, None, iterations=4)
         labels = measure.label(thresh, background=0)
         mask = np.zeros(thresh.shape, dtype="uint8")
-
+        cv2.imshow("blur",image_blur)
+        cv2.imshow("thresh",thresh)
         for label in np.unique(labels):
             if label == 0:
                 continue
