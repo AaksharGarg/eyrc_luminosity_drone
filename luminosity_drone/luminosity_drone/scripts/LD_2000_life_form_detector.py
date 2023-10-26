@@ -41,6 +41,7 @@ class swift:
             "drone_control"
         )  # initializing ros node with name drone_control
         self.travel_flag = True
+        self.travel_flag2= True
         self.bridge = CvBridge()  # Creating an Instance of CV Bridge
         self.image_sub = rospy.Subscriber(
             "/swift/camera_rgb/image_raw", Image, self.image_callback
@@ -124,23 +125,25 @@ class swift:
         self.cv_image = self.bridge.imgmsg_to_cv2(
             data, "bgr8"
         )  # Converting Image to CV2 comatible datatype
-        try:
-            led_detector = LEDDetector(self.cv_image)
-            # print("\n", len(led_detector.contour_list), "-", led_detector.contour_list)
-            for i in range(len(led_detector.contour_list)):
-                    # print(i,led_detector.contour_list[i)
-                    self.drone_camera[0]+=led_detector.contour_list[i][0]
-                    self.drone_camera[1]+=led_detector.contour_list[i][1]
-                    # self.drone_camera[2]+=led_detector.contour_list[i]
-            self.drone_camera[0]=self.drone_camera[0]/len(led_detector.contour_list)
-            self.drone_camera[1]=self.drone_camera[1]/len(led_detector.contour_list)
-            
-            # print(self.drone_camera)
-            if len(led_detector.contour_list) > 1:
+        
+        led_detector = LEDDetector(self.cv_image)
+        # print("\n", len(led_detector.contour_list), "-", led_detector.contour_list)
+        for i in range(len(led_detector.contour_list)):
+                # print(i,led_detector.contour_list[i)
+                self.drone_camera[0]+=led_detector.contour_list[i][0]
+                self.drone_camera[1]+=led_detector.contour_list[i][1]
+                # self.drone_camera[2]+=led_detector.contour_list[i]
+        self.drone_camera[0]=self.drone_camera[0]/len(led_detector.contour_list)
+        self.drone_camera[1]=self.drone_camera[1]/len(led_detector.contour_list)
+        
+        # print(self.drone_camera)
+        if len(led_detector.contour_list) > 1:
 
-                self.travel_flag = False
-                self.setpoint = [self.setpoint[self.point_num]]
-                self.point_num = 0
+            self.travel_flag = False
+            self.setpoint = [self.setpoint[self.point_num]]
+            self.point_num = 0
+            print(1)
+            if self.travel_flag2: 
                 if len(led_detector.contour_list)==2:
                     self.org.organism_type="alien_a"
                 elif len(led_detector.contour_list)==3:
@@ -152,11 +155,11 @@ class swift:
                 self.org.whycon_z=self.drone_position[2]
                 self.organism_pub.publish(self.org)
                 # print(self.drone_camera[0]*(self.drone_position[0]/250))
-                # self.setpoint = [(self.drone_camera[0]*(self.drone_position[0]/250)),(self.drone_camera[1]*(self.drone_position[1]/250)),15]
+                # self.setpoint = [[(self.drone_camera[0]*(self.drone_position[0]/250)),(self.drone_camera[1]*(self.drone_position[1]/250)),15]]
+                print(2,self.setpoint,self.drone_position)   
 
-                self.point_num = 0
-        except:
-            pass
+
+        
         cv2.waitKey(1)
 
     # Disarming condition of the drone
@@ -235,9 +238,18 @@ class swift:
             self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
             self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
         else:
-            self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
-            self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
-            self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
+            print(3,self.setpoint)
+            self.error[0] = -(self.drone_position[0] - self.setpoint[0][0])
+            self.error[1] = self.drone_position[1] - self.setpoint[0][1]
+            self.error[2] = self.drone_position[2] - self.setpoint[0][2]
+            if (
+                abs(self.error[0]) <= 0.2
+                and abs(self.error[1]) <= 0.2
+                and abs(self.error[2]) <= 0.2
+            ):
+                self.travel_flag2=True                
+            else:    
+                self.travel_flag2=False
 
         current_time = rospy.get_time()
         dt = current_time - self.prev_time
