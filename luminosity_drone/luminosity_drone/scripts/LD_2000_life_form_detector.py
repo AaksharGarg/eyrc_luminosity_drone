@@ -33,6 +33,7 @@ from cv_bridge import CvBridge
 import cv2
 from luminosity_drone.msg import Biolocation
 
+
 class swift:
     """docstring for swift"""
 
@@ -41,7 +42,7 @@ class swift:
             "drone_control"
         )  # initializing ros node with name drone_control
         self.travel_flag = True
-        self.travel_flag2= True
+        self.travel_flag2 = True
         self.bridge = CvBridge()  # Creating an Instance of CV Bridge
         self.image_sub = rospy.Subscriber(
             "/swift/camera_rgb/image_raw", Image, self.image_callback
@@ -49,20 +50,23 @@ class swift:
         # This corresponds to your current position of drone. This value must be updated each time in your whycon callback
         # [x,y,z]
         self.drone_position = [0.0, 0.0, 0.0]
-        self.drone_camera=[0,0]
+        self.drone_camera = [0, 0]
         # [x_setpoint, y_setpoint, z_setpoint]
         self.point_num = -1
         self.setpoint = [
-            [0, 0, 15],
-            [-5, -5, 15],
-            [0, -5, 15],
-            [5, -5, 15],
-            [5, 0, 15],
-            [0, 0, 15],
-            [-5, 0, 15],
-            [-5, 5, 15],
-            [0, 5, 15],
-            [5, 5, 15],
+            [0, 0, 25],
+            [-8, -8, 25],
+            [0, -8, 25],
+            [8, -8, 25],
+            [8, -2, 25],
+            [0, -2, 25],
+            [-8, -2, 25],
+            [-8, 2, 25],
+            [0, 2, 25],
+            [8, 2, 25],
+            [8, 8, 25],
+            [0, 8, 25],
+            [-8, 8, 25],
         ]
         # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
 
@@ -92,18 +96,14 @@ class swift:
 
         self.prev_time = rospy.get_time()
 
-        # Hint : Add variables for storing previous errors in each axis, like self.prev_error = [0,0,0] where corresponds to [pitch, roll, throttle]
-        # #		 Add variables for limiting the values like self.max_values = [2000,2000,2000] corresponding to [roll, pitch, throttle]
-        # 													self.min_values = [1000,1000,1000] corresponding to [pitch, roll, throttle]
-        # 																	You can change the upper limit and lower limit accordingly.
-        # ----------------------------------------------------------------------------------------------------------
-
         # This is the sample time in which you need to run pid. Choose any time which you seem fit. Remember the stimulation step time is 50 ms
         # self.sample_time = 0.033 # in seconds
 
         # Publishing /drone_command, /alt_error, /pitch_error, /roll_error
         self.command_pub = rospy.Publisher("/drone_command", swift_msgs, queue_size=1)
-        self.organism_pub = rospy.Publisher("/astrobiolocation",Biolocation , queue_size=1)
+        self.organism_pub = rospy.Publisher(
+            "/astrobiolocation", Biolocation, queue_size=1
+        )
         # ------------------------Add other ROS Publishers here-----------------------------------------------------
         self.alt_error_pub = rospy.Publisher("/alt_error", Float64, queue_size=1)
         self.pitch_error_pub = rospy.Publisher("/pitch_error", Float64, queue_size=1)
@@ -125,41 +125,48 @@ class swift:
         self.cv_image = self.bridge.imgmsg_to_cv2(
             data, "bgr8"
         )  # Converting Image to CV2 comatible datatype
-        
-        led_detector = LEDDetector(self.cv_image)
-        # print("\n", len(led_detector.contour_list), "-", led_detector.contour_list)
-        for i in range(len(led_detector.contour_list)):
-                # print(i,led_detector.contour_list[i)
-                self.drone_camera[0]+=led_detector.contour_list[i][0]
-                self.drone_camera[1]+=led_detector.contour_list[i][1]
-                # self.drone_camera[2]+=led_detector.contour_list[i]
-        self.drone_camera[0]=self.drone_camera[0]/len(led_detector.contour_list)
-        self.drone_camera[1]=self.drone_camera[1]/len(led_detector.contour_list)
-        
-        # print(self.drone_camera)
-        if len(led_detector.contour_list) > 1:
+        try:
+            led_detector = LEDDetector(self.cv_image)
+            if len(led_detector.contour_list) > 1:
+                if self.travel_flag:
+                    self.setpoint.append([self.drone_position[0],self.drone_position[1],25])
+                    self.point_num = len(self.setpoint)-1
+                    self.travel_flag= False
+                for i in range(len(led_detector.contour_list)):
+                    self.drone_camera[0] += led_detector.contour_list[i][0]
+                    self.drone_camera[1] += led_detector.contour_list[i][1]
+                self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
+                self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
+                if self.drone_camera[0]<240:
+                    self.setpoint[-1][0]-=0.01
+                elif self.drone_camera[0]>260:
+                    self.setpoint[-1][0]+=0.01
+                if self.drone_camera[1]<240:
+                    self.setpoint[-1][1]-=0.01
+                elif self.drone_camera[1]>260:
+                    self.setpoint[-1][1]+=0.01
+                if (self.drone_camera[0]>=240 and self.drone_camera[0]<260) and (self.drone_camera[1]>=240 and self.drone_camera[1]<260):
+                    if self.travel_flag2:
+                        self.travelflag2= False
+                    if len(led_detector.contour_list)==2:
+                        self.org.organism_type="alien_a"
+                    elif len(led_detector.contour_list)==3:
+                        self.org.organism_type="alien_b"
+                    elif len(led_detector.contour_list)==4:
+                        self.org.organism_type="alien_c"
+                    self.org.whycon_x =self.drone_position[0]
+                    self.org.whycon_y =self.drone_position[1]
+                    self.org.whycon_z=self.drone_position[2]
+                    self.organism_pub.publish(self.org)
+                    self.setpoint[-1]=[11, 11, 37]
+                print(self.setpoint[-1],self.drone_camera)
 
-            self.travel_flag = False
-            self.setpoint = [self.setpoint[self.point_num]]
-            self.point_num = 0
-            print(1)
-            if self.travel_flag2: 
-                if len(led_detector.contour_list)==2:
-                    self.org.organism_type="alien_a"
-                elif len(led_detector.contour_list)==3:
-                    self.org.organism_type="alien_b"
-                elif len(led_detector.contour_list)==4:
-                    self.org.organism_type="alien_c"
-                self.org.whycon_x =(self.drone_camera[0]*(self.drone_position[0]/250))
-                self.org.whycon_y =(self.drone_camera[1]*(self.drone_position[1]/250))
-                self.org.whycon_z=self.drone_position[2]
-                self.organism_pub.publish(self.org)
-                # print(self.drone_camera[0]*(self.drone_position[0]/250))
-                # self.setpoint = [[(self.drone_camera[0]*(self.drone_position[0]/250)),(self.drone_camera[1]*(self.drone_position[1]/250)),15]]
-                print(2,self.setpoint,self.drone_position)   
-
-
+                
+                
+        except:
+            pass
         
+
         cv2.waitKey(1)
 
     # Disarming condition of the drone
@@ -201,9 +208,7 @@ class swift:
     # Callback function for /pid_tuning_altitude
     # This function gets executed each time when /tune_pid publishes /pid_tuning_altitude
     def altitude_set_pid(self, alt):
-        self.Kp[2] = (
-            alt.Kp * 0.6
-        )  # #66 This is just for an example. You can change the ratio/fraction value accordingly
+        self.Kp[2] = alt.Kp * 0.6  # #66 This is just for an example. You can change the ratio/fraction value accordingly
         self.Ki[2] = alt.Ki * 0.0008  # 2
         self.Kd[2] = alt.Kd * 0.3  # 2140
 
@@ -222,34 +227,18 @@ class swift:
 
     def pid(self):
         # -----------------------------Write the PID algorithm here--------------------------------------------------------------
-        if self.travel_flag:
-            print("Continuing")
-            if (
-                abs(self.error[0]) <= 0.2
-                and abs(self.error[1]) <= 0.2
-                and abs(self.error[2]) <= 0.2
-            ):
-                if len(self.setpoint) > (self.point_num + 1):
-                    self.point_num += 1
+        if (
+            abs(self.error[0]) <= 0.2
+            and abs(self.error[1]) <= 0.2
+            and abs(self.error[2]) <= 0.2
+        ):
+            if len(self.setpoint) > (self.point_num + 1):
+                self.point_num += 1
 
-                    print(self.drone_position, "################", self.point_num)
-
-            self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
-            self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
-            self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
-        else:
-            print(3,self.setpoint)
-            self.error[0] = -(self.drone_position[0] - self.setpoint[0][0])
-            self.error[1] = self.drone_position[1] - self.setpoint[0][1]
-            self.error[2] = self.drone_position[2] - self.setpoint[0][2]
-            if (
-                abs(self.error[0]) <= 0.2
-                and abs(self.error[1]) <= 0.2
-                and abs(self.error[2]) <= 0.2
-            ):
-                self.travel_flag2=True                
-            else:    
-                self.travel_flag2=False
+                print(self.drone_position, "################", self.point_num)
+        self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
+        self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
+        self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
 
         current_time = rospy.get_time()
         dt = current_time - self.prev_time
