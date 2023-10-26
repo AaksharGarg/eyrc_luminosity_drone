@@ -27,7 +27,11 @@ from std_msgs.msg import Float64
 from pid_tune.msg import PidTune
 import rospy
 import time
-
+from led_detection import LEDDetector
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2
+from luminosity_drone.msg import Biolocation
 
 class swift:
     """docstring for swift"""
@@ -36,28 +40,34 @@ class swift:
         rospy.init_node(
             "drone_control"
         )  # initializing ros node with name drone_control
-
+        self.travel_flag = True
+        self.bridge = CvBridge()  # Creating an Instance of CV Bridge
+        self.image_sub = rospy.Subscriber(
+            "/swift/camera_rgb/image_raw", Image, self.image_callback
+        )  # Subsciber for the Image feed
         # This corresponds to your current position of drone. This value must be updated each time in your whycon callback
         # [x,y,z]
         self.drone_position = [0.0, 0.0, 0.0]
-
+        self.drone_camera=[0,0]
         # [x_setpoint, y_setpoint, z_setpoint]
         self.point_num = -1
         self.setpoint = [
-            [0, 0, 23],
-            [2, 0, 23],
-            [2, 2, 23],
-            [2, 2, 25],
-            [-5, 2, 25],
-            [-5, -3, 25],
-            [-5, -3, 21],
-            [7, -3, 21],
-            [7, 0, 21],
-            [0, 0, 19],
-        ]  # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
+            [0, 0, 15],
+            [-5, -5, 15],
+            [0, -5, 15],
+            [5, -5, 15],
+            [5, 0, 15],
+            [0, 0, 15],
+            [-5, 0, 15],
+            [-5, 5, 15],
+            [0, 5, 15],
+            [5, 5, 15],
+        ]
+        # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
 
         # Declaring a cmd of message type swift_msgs and initializing values
         self.cmd = swift_msgs()
+        self.org = Biolocation()
         self.cmd.rcRoll = 1500
         self.cmd.rcPitch = 1500
         self.cmd.rcYaw = 1500
@@ -92,6 +102,7 @@ class swift:
 
         # Publishing /drone_command, /alt_error, /pitch_error, /roll_error
         self.command_pub = rospy.Publisher("/drone_command", swift_msgs, queue_size=1)
+        self.organism_pub = rospy.Publisher("/astrobiolocation",Biolocation , queue_size=1)
         # ------------------------Add other ROS Publishers here-----------------------------------------------------
         self.alt_error_pub = rospy.Publisher("/alt_error", Float64, queue_size=1)
         self.pitch_error_pub = rospy.Publisher("/pitch_error", Float64, queue_size=1)
@@ -108,6 +119,45 @@ class swift:
 
         # ------------------------------------------------------------------------------------------------------------
         self.arm()  # ARMING THE DRONE
+
+    def image_callback(self, data):
+        self.cv_image = self.bridge.imgmsg_to_cv2(
+            data, "bgr8"
+        )  # Converting Image to CV2 comatible datatype
+        try:
+            led_detector = LEDDetector(self.cv_image)
+            # print("\n", len(led_detector.contour_list), "-", led_detector.contour_list)
+            for i in range(len(led_detector.contour_list)):
+                    # print(i,led_detector.contour_list[i)
+                    self.drone_camera[0]+=led_detector.contour_list[i][0]
+                    self.drone_camera[1]+=led_detector.contour_list[i][1]
+                    # self.drone_camera[2]+=led_detector.contour_list[i]
+            self.drone_camera[0]=self.drone_camera[0]/len(led_detector.contour_list)
+            self.drone_camera[1]=self.drone_camera[1]/len(led_detector.contour_list)
+            
+            # print(self.drone_camera)
+            if len(led_detector.contour_list) > 1:
+
+                self.travel_flag = False
+                self.setpoint = [self.setpoint[self.point_num]]
+                self.point_num = 0
+                if len(led_detector.contour_list)==2:
+                    self.org.organism_type="alien_a"
+                elif len(led_detector.contour_list)==3:
+                    self.org.organism_type="alien_b"
+                elif len(led_detector.contour_list)==4:
+                    self.org.organism_type="alien_c"
+                self.org.whycon_x =(self.drone_camera[0]*(self.drone_position[0]/250))
+                self.org.whycon_y =(self.drone_camera[1]*(self.drone_position[1]/250))
+                self.org.whycon_z=self.drone_position[2]
+                self.organism_pub.publish(self.org)
+                # print(self.drone_camera[0]*(self.drone_position[0]/250))
+                # self.setpoint = [(self.drone_camera[0]*(self.drone_position[0]/250)),(self.drone_camera[1]*(self.drone_position[1]/250)),15]
+
+                self.point_num = 0
+        except:
+            pass
+        cv2.waitKey(1)
 
     # Disarming condition of the drone
     def disarm(self):
@@ -169,30 +219,25 @@ class swift:
 
     def pid(self):
         # -----------------------------Write the PID algorithm here--------------------------------------------------------------
+        if self.travel_flag:
+            print("Continuing")
+            if (
+                abs(self.error[0]) <= 0.2
+                and abs(self.error[1]) <= 0.2
+                and abs(self.error[2]) <= 0.2
+            ):
+                if len(self.setpoint) > (self.point_num + 1):
+                    self.point_num += 1
 
-        # Steps:
-        # 	1. Compute error in each axis. eg: error[0] = self.drone_position[0] - self.setpoint[0] ,where error[0] corresponds to error in x...
-        # 	2. Compute the error (for proportional), change in error (for derivative) and sum of errors (for integral) in each axis. Refer "Understanding PID.pdf" to understand PID equation.
-        # 	3. Calculate the pid output required for each axis. For eg: calcuate self.out_roll, self.out_pitch, etc.
-        # 	4. Reduce or add this computed output value on the avg value ie 1500. For eg: self.cmd.rcRoll = 1500 + self.out_roll. LOOK OUT FOR SIGN (+ or -). EXPERIMENT AND FIND THE CORRECT SIGN
-        # 		5. Don't run the pid continously. Run the pid only at the a sample time. self.sampletime defined above is for this purpose. THIS IS VERY IMPORTANT.
-        # 	6. Limit the output value and the final command value between the maximum(2000) and minimum(1000)range before publishing. For eg : if self.cmd.rcPitch > self.max_values[1]:
-        # 																														self.cmd.rcPitch = self.max_values[1]
-        # 	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
-        # 	8. Add error_sum
-        if (
-            abs(self.error[0]) <= 0.2
-            and abs(self.error[1]) <= 0.2
-            and abs(self.error[2]) <= 0.13
-        ):
-            if len(self.setpoint) > (self.point_num + 1):
-                self.point_num += 1
+                    print(self.drone_position, "################", self.point_num)
 
-                print(self.drone_position, "################", self.point_num)
-
-        self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
-        self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
-        self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
+            self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
+            self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
+            self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
+        else:
+            self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
+            self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
+            self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
 
         current_time = rospy.get_time()
         dt = current_time - self.prev_time

@@ -1,57 +1,50 @@
-# import the necessary packages
+import cv2
+import numpy as np
 from imutils import contours
 from skimage import measure
-import numpy as np
 import imutils
-import cv2
 
-# load the image, 
-image = cv2.imread('led.jpg', 1)
+class LEDDetector:
+    def __init__(self, image_path):
+        self.image = image_path
+        self.contour_list = []
+        self.area_list = []
+        self.process_image()
 
-# convert it to grayscale, and blur it
+    def process_image(self):
+        image_gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        image_blur = cv2.GaussianBlur(image_gray, (11, 11), 0)
+        # print("size:",self.image.shape)
+        threshold_value = 200  # Adjust this threshold value as needed
+        _, thresholded = cv2.threshold(image_blur, threshold_value, 255, cv2.THRESH_BINARY)
 
-# threshold the image to reveal light regions in the blurred image
+        cnts = cv2.findContours(thresholded.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        cnts = contours.sort_contours(cnts)[0]
 
+        for (i, c) in enumerate(cnts):
+            (x, y, w, h) = cv2.boundingRect(c)
+            ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+            self.contour_list.append((cX, cY))
+            area = cv2.contourArea(cnts[0])
+            self.area_list.append(area)
+            cv2.circle(self.image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
+            cv2.putText(self.image, f"#{i + 1}", (x, y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+        return True   
+    def save_results(self, image_output_path, text_output_path):
+        cv2.imwrite(image_output_path, self.image)
 
-# perform a series of erosions and dilations to remove any small blobs of noise from the thresholded image
+        with open(text_output_path, "w") as file:
+            file.write(f"No. of LEDs detected: {len(self.contour_list)}\n")
+            for i, centroid in enumerate(self.contour_list):
+                file.write(f"Centroid #{i + 1}: {centroid}\nArea #{i + 1}: {self.area_list[i]}\n")
 
-# perform a connected component analysis on the thresholded image, then initialize a mask to store only the "large" components
+if __name__ == "__main__":
+    # Initialize the LEDDetector with the image path
+    led_detector = LEDDetector('led.jpg')
 
-# loop over the unique components
+    # Process the image and detect LEDs
+    led_detector.process_image()
 
-	# if this is the background label, ignore it
-
-	# otherwise, construct the label mask and count the number of pixels 
-
-	# if the number of pixels in the component is sufficiently large, then add it to our mask of "large blobs"
-	
-# find the contours in the mask, then sort them from left to right
-
-# loop over the contours
-
-# Initialize lists to store centroid coordinates and area
-
-# Loop over the contours
-
-
-    # Calculate the area of the contour
-    
-
-    # Draw the bright spot on the image
-
-
-    # Append centroid coordinates and area to the respective lists
-
-# Save the output image as a PNG file
-cv2.imwrite("led_detection_results.png", image)
-
-# Open a text file for writing
-with open("led_detection_results.txt", "w") as file:
-    # Write the number of LEDs detected to the file
-    file.write(f"No. of LEDs detected: {a}\n")
-    # Loop over the contours
-    
-        # Write centroid coordinates and area for each LED to the file
-        file.write(f"Centroid #{i + 1}: {centroid}\nArea #{i + 1}: {area}\n")
-# Close the text file
-file.close()
+    # Save the results to image and text files
+    led_detector.save_results("LD_2000_led_detection_results.png", "LD_2000_led_detection_results.txt")
