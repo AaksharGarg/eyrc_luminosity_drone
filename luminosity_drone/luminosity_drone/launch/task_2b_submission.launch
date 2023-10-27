@@ -33,7 +33,7 @@
   <node name="rosbag_record_waypoint_navigation" pkg="rosbag" type="record"
     args="record -O $(find luminosity_drone)/scripts/$(arg rec_name) --duration=$(arg duration) --chunksize=10 /whycon/poses /astrobiolocation /gazebo/model_states_throttle /sub_info" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
   
-  <node pkg="luminosity_drone" type="life_form_detector.py" name="life_form_detection"/>
+  <node pkg="luminosity_drone" type="LD_2000_life_form_detector.py" name="LD_2000_life_form_detector"/>
   <node name="sub_info" type="info" pkg="luminosity_drone"/>
 
 </launch>
