@@ -148,17 +148,18 @@ class swift:
                 if (self.drone_camera[0]>=240 and self.drone_camera[0]<260) and (self.drone_camera[1]>=240 and self.drone_camera[1]<260):
                     if self.travel_flag2:
                         self.travelflag2= False
-                    if len(led_detector.contour_list)==2:
-                        self.org.organism_type="alien_a"
-                    elif len(led_detector.contour_list)==3:
-                        self.org.organism_type="alien_b"
-                    elif len(led_detector.contour_list)==4:
-                        self.org.organism_type="alien_c"
-                    self.org.whycon_x =self.drone_position[0]
-                    self.org.whycon_y =self.drone_position[1]
-                    self.org.whycon_z=self.drone_position[2]
-                    self.organism_pub.publish(self.org)
-                    self.setpoint[-1]=[11, 11, 37]
+                        if len(led_detector.contour_list)==2:
+                            self.org.organism_type="alien_a"
+                        elif len(led_detector.contour_list)==3:
+                            self.org.organism_type="alien_b"
+                        elif len(led_detector.contour_list)==4:
+                            self.org.organism_type="alien_c"
+                        self.org.whycon_x =self.drone_position[0]
+                        self.org.whycon_y =self.drone_position[1]
+                        self.org.whycon_z=self.drone_position[2]
+                        self.organism_pub.publish(self.org)
+                        self.setpoint=[[3, 3, 25],[3,3,30],[11,11,35],[11,11,37]]
+                        self.point_num=0
                 print(self.setpoint[-1],self.drone_camera)
 
                 
@@ -175,6 +176,10 @@ class swift:
         self.cmd.rcAUX2 = 0
         self.cmd.rcAUX3 = 0
         self.cmd.rcAUX4 = 0
+        self.cmd.rcRoll = 0
+        self.cmd.rcPitch = 0
+        self.cmd.rcYaw = 0
+        self.cmd.rcThrottle = 0
         self.command_pub.publish(self.cmd)
         rospy.sleep(1)
 
@@ -227,6 +232,9 @@ class swift:
 
     def pid(self):
         # -----------------------------Write the PID algorithm here--------------------------------------------------------------
+        if self.setpoint[self.point_num][2]== 37:
+            if abs(self.error[2]<=0.4):
+                self.disarm()
         if (
             abs(self.error[0]) <= 0.2
             and abs(self.error[1]) <= 0.2
@@ -234,8 +242,8 @@ class swift:
         ):
             if len(self.setpoint) > (self.point_num + 1):
                 self.point_num += 1
-
                 print(self.drone_position, "################", self.point_num)
+        
         self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
         self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
         self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
@@ -329,5 +337,8 @@ if __name__ == "__main__":
         30
     )  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
     while not rospy.is_shutdown():
-        swift_drone.pid()
+        try:
+            swift_drone.pid()
+        except:
+            pass
         r.sleep()
