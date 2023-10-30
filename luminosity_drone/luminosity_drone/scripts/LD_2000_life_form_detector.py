@@ -137,15 +137,15 @@ class swift:
                     self.drone_camera[1] += led_detector.contour_list[i][1]
                 self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
                 self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
-                if self.drone_camera[0]<240:
-                    self.setpoint[-1][0]-=0.01
-                elif self.drone_camera[0]>260:
-                    self.setpoint[-1][0]+=0.01
-                if self.drone_camera[1]<240:
-                    self.setpoint[-1][1]-=0.01
-                elif self.drone_camera[1]>260:
-                    self.setpoint[-1][1]+=0.01
-                if (self.drone_camera[0]>=240 and self.drone_camera[0]<260) and (self.drone_camera[1]>=240 and self.drone_camera[1]<260):
+                if self.drone_camera[0]<299:
+                    self.setpoint[-1][0]-=0.008
+                elif self.drone_camera[0]>=301:
+                    self.setpoint[-1][0]+=0.008
+                if self.drone_camera[1]<299:
+                    self.setpoint[-1][1]-=0.008
+                elif self.drone_camera[1]>=301:
+                    self.setpoint[-1][1]+=0.008
+                if (self.drone_camera[0]>=299 and self.drone_camera[0]<301) and (self.drone_camera[1]>=299 and self.drone_camera[1]<301):
                     if self.travel_flag2:
                         self.travelflag2= False
                         if len(led_detector.contour_list)==2:
@@ -158,7 +158,9 @@ class swift:
                         self.org.whycon_y =self.drone_position[1]
                         self.org.whycon_z=self.drone_position[2]
                         self.organism_pub.publish(self.org)
-                        self.setpoint=[[3, 3, 25],[3,3,30],[11,11,35],[11,11,37]]
+                        x=self.setpoint[-1][0]
+                        y=self.setpoint[-1][1]
+                        self.setpoint=[[3,3,30],[9,9,30],[11,11,35],[11,11,37]]
                         self.point_num=0
                 print(self.setpoint[-1],self.drone_camera)
 
