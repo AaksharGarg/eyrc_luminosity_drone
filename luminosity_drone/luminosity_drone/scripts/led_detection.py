@@ -8,6 +8,8 @@ class LEDDetector:
     def __init__(self, image_path):
         self.image = image_path
         self.contour_list = []
+        self.static_list=[]
+        self.alien_list=[]
         self.area_list = []
         self.process_image()
 
@@ -25,11 +27,20 @@ class LEDDetector:
         for (i, c) in enumerate(cnts):
             (x, y, w, h) = cv2.boundingRect(c)
             ((cX, cY), radius) = cv2.minEnclosingCircle(c)
-            self.contour_list.append((cX, cY))
+            
+            self.static_list.append((cX, cY))
             area = cv2.contourArea(cnts[0])
             self.area_list.append(area)
             cv2.circle(self.image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
             cv2.putText(self.image, f"#{i + 1}", (x, y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+        
+        if len(self.static_list)>1:
+            for (X,Y) in self.static_list:
+                for (x,y) in self.static_list:
+                    if abs(x-X)<=40 and abs(y-Y)<=40:
+                        self.alien_list.append((x,y))
+                self.contour_list.append(self.alien_list)
+                self.alien_list=[]
         return True   
     def save_results(self, image_output_path, text_output_path):
         cv2.imwrite(image_output_path, self.image)

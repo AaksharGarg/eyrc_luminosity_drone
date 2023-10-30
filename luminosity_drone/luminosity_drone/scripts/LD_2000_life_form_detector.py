@@ -127,7 +127,7 @@ class swift:
         )  # Converting Image to CV2 comatible datatype
         try:
             led_detector = LEDDetector(self.cv_image)
-            if len(led_detector.contour_list) > 1:
+            if len(led_detector.contour_list) > 1:   
                 if self.travel_flag:
                     self.setpoint.append([self.drone_position[0],self.drone_position[1],25])
                     self.point_num = len(self.setpoint)-1
@@ -137,15 +137,15 @@ class swift:
                     self.drone_camera[1] += led_detector.contour_list[i][1]
                 self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
                 self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
-                if self.drone_camera[0]<299:
+                if self.drone_camera[0]<299.2:
                     self.setpoint[-1][0]-=0.008
-                elif self.drone_camera[0]>=301:
+                elif self.drone_camera[0]>=300.8:
                     self.setpoint[-1][0]+=0.008
-                if self.drone_camera[1]<299:
+                if self.drone_camera[1]<299.2:
                     self.setpoint[-1][1]-=0.008
-                elif self.drone_camera[1]>=301:
+                elif self.drone_camera[1]>=300.8:
                     self.setpoint[-1][1]+=0.008
-                if (self.drone_camera[0]>=299 and self.drone_camera[0]<301) and (self.drone_camera[1]>=299 and self.drone_camera[1]<301):
+                if (self.drone_camera[0]>=299.2 and self.drone_camera[0]<300.8) and (self.drone_camera[1]>=299.2 and self.drone_camera[1]<300.8):
                     if self.travel_flag2:
                         self.travelflag2= False
                         if len(led_detector.contour_list)==2:
