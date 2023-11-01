@@ -43,6 +43,8 @@ class swift:
         )  # initializing ros node with name drone_control
         self.travel_flag = True
         self.travel_flag2 = True
+        self.check=0
+        self.cluster=1
         self.bridge = CvBridge()  # Creating an Instance of CV Bridge
         self.image_sub = rospy.Subscriber(
             "/swift/camera_rgb/image_raw", Image, self.image_callback
@@ -66,8 +68,10 @@ class swift:
             [8, 2, 25],
             [8, 8, 25],
             [0, 8, 25],
-            [-8, 8, 25],
+            [-8, 8, 25],[11,11,35],[11,11,37],
         ]
+        self.setpoint_2=[]
+        self.point_num_2=0
         # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
 
         # Declaring a cmd of message type swift_msgs and initializing values
@@ -124,30 +128,40 @@ class swift:
     def image_callback(self, data):
         self.cv_image = self.bridge.imgmsg_to_cv2(
             data, "bgr8"
-        )  # Converting Image to CV2 comatible datatype
+        )  # Converting Image to CV2 compatible datatype
         try:
             led_detector = LEDDetector(self.cv_image)
             if len(led_detector.contour_list) > 1:
                 if self.travel_flag:
+                    self.check+=1
+                    print("pause")
+                    #taking backup 
+                    self.setpoint_2=self.setpoint
+                    self.point_num_2=self.point_num
+                    #when LED is detected
                     self.setpoint.append([self.drone_position[0],self.drone_position[1],25])
                     self.point_num = len(self.setpoint)-1
                     self.travel_flag= False
+                    self.travel_flag2=True
+                #taking centroid of led cluster    
                 for i in range(len(led_detector.contour_list)):
                     self.drone_camera[0] += led_detector.contour_list[i][0]
                     self.drone_camera[1] += led_detector.contour_list[i][1]
                 self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
                 self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
-                if self.drone_camera[0]<299:
+                #moving the led cluster to the centre of the frame
+                if self.drone_camera[0]<295:
                     self.setpoint[-1][0]-=0.008
-                elif self.drone_camera[0]>=301:
+                elif self.drone_camera[0]>=305:
                     self.setpoint[-1][0]+=0.008
-                if self.drone_camera[1]<299:
+                if self.drone_camera[1]<295:
                     self.setpoint[-1][1]-=0.008
-                elif self.drone_camera[1]>=301:
+                elif self.drone_camera[1]>=305:
                     self.setpoint[-1][1]+=0.008
-                if (self.drone_camera[0]>=299 and self.drone_camera[0]<301) and (self.drone_camera[1]>=299 and self.drone_camera[1]<301):
+                #when the cluster is in the centre of the frame
+                if (self.drone_camera[0]>=295 and self.drone_camera[0]<305) and (self.drone_camera[1]>=295 and self.drone_camera[1]<305):
+                    #so that msg is published only one time to astrobiolocation for each cluster
                     if self.travel_flag2:
-                        self.travelflag2= False
                         if len(led_detector.contour_list)==2:
                             self.org.organism_type="alien_a"
                         elif len(led_detector.contour_list)==3:
@@ -158,14 +172,15 @@ class swift:
                         self.org.whycon_y =self.drone_position[1]
                         self.org.whycon_z=self.drone_position[2]
                         self.organism_pub.publish(self.org)
-                        x=self.setpoint[-1][0]
-                        y=self.setpoint[-1][1]
-                        self.setpoint=[[3,3,30],[9,9,30],[11,11,35],[11,11,37]]
-                        self.point_num=0
-                print(self.setpoint[-1],self.drone_camera)
-
-                
-                
+                        self.travel_flag2= False
+                        # self.setpoint=[[3,3,30],[9,9,30],[11,11,35],[11,11,37]]
+                        self.setpoint=self.setpoint_2
+                        print(self.setpoint)
+                        self.point_num=self.point_num_2+1
+                        print(self.point_num_2)
+                        self.cluster+=1
+                        # self.travel_flag= True
+                # print(self.setpoint[-1],self.drone_camera)
         except:
             pass
         
@@ -245,6 +260,9 @@ class swift:
             if len(self.setpoint) > (self.point_num + 1):
                 self.point_num += 1
                 print(self.drone_position, "################", self.point_num)
+                print("cluster",self.cluster,"check",self.check)
+                if self.check<self.cluster: 
+                    self.travel_flag= True
         
         self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
         self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
