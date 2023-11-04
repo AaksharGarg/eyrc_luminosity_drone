@@ -44,9 +44,7 @@ class swift:
         self.travel_flag = True
         self.travel_flag2 = True
         self.bridge = CvBridge()  # Creating an Instance of CV Bridge
-        self.image_sub = rospy.Subscriber(
-            "/swift/camera_rgb/image_raw", Image, self.image_callback
-        )  # Subsciber for the Image feed
+        self.image_sub = rospy.Subscriber("/swift/camera_rgb/image_raw", Image, self.image_callback)  # Subsciber for the Image feed
         # This corresponds to your current position of drone. This value must be updated each time in your whycon callback
         # [x,y,z]
         self.drone_position = [0.0, 0.0, 0.0]
@@ -101,9 +99,7 @@ class swift:
 
         # Publishing /drone_command, /alt_error, /pitch_error, /roll_error
         self.command_pub = rospy.Publisher("/drone_command", swift_msgs, queue_size=1)
-        self.organism_pub = rospy.Publisher(
-            "/astrobiolocation", Biolocation, queue_size=1
-        )
+        self.organism_pub = rospy.Publisher("/astrobiolocation", Biolocation, queue_size=1)
         # ------------------------Add other ROS Publishers here-----------------------------------------------------
         self.alt_error_pub = rospy.Publisher("/alt_error", Float64, queue_size=1)
         self.pitch_error_pub = rospy.Publisher("/pitch_error", Float64, queue_size=1)
@@ -137,15 +133,15 @@ class swift:
                     self.drone_camera[1] += led_detector.contour_list[i][1]
                 self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
                 self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
-                if self.drone_camera[0]<299:
-                    self.setpoint[-1][0]-=0.008
-                elif self.drone_camera[0]>=301:
-                    self.setpoint[-1][0]+=0.008
-                if self.drone_camera[1]<299:
-                    self.setpoint[-1][1]-=0.008
-                elif self.drone_camera[1]>=301:
-                    self.setpoint[-1][1]+=0.008
-                if (self.drone_camera[0]>=299 and self.drone_camera[0]<301) and (self.drone_camera[1]>=299 and self.drone_camera[1]<301):
+                if self.drone_camera[0]<298:
+                    self.setpoint[-1][0]-=0.011
+                elif self.drone_camera[0]>=302:
+                    self.setpoint[-1][0]+=0.011
+                if self.drone_camera[1]<298:
+                    self.setpoint[-1][1]-=0.011
+                elif self.drone_camera[1]>=302:
+                    self.setpoint[-1][1]+=0.011
+                if (self.drone_camera[0]>=298 and self.drone_camera[0]<302) and (self.drone_camera[1]>=298.5 and self.drone_camera[1]<302):
                     if self.travel_flag2:
                         self.travelflag2= False
                         if len(led_detector.contour_list)==2:
@@ -160,7 +156,7 @@ class swift:
                         self.organism_pub.publish(self.org)
                         x=self.setpoint[-1][0]
                         y=self.setpoint[-1][1]
-                        self.setpoint=[[3,3,30],[9,9,30],[11,11,35],[11,11,37]]
+                        self.setpoint=[[x,y,30],[9,9,30],[11,11,35],[11,11,37]]
                         self.point_num=0
                 print(self.setpoint[-1],self.drone_camera)
 
@@ -238,9 +234,9 @@ class swift:
             if abs(self.error[2]<=0.4):
                 self.disarm()
         if (
-            abs(self.error[0]) <= 0.2
-            and abs(self.error[1]) <= 0.2
-            and abs(self.error[2]) <= 0.2
+            abs(self.error[0]) <= 0.16
+            and abs(self.error[1]) <= 0.16
+            and abs(self.error[2]) <= 0.16
         ):
             if len(self.setpoint) > (self.point_num + 1):
                 self.point_num += 1
