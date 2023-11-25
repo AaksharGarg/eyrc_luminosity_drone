@@ -19,14 +19,21 @@ CODE MODULARITY AND TECHNIQUES MENTIONED LIKE THIS WILL HELP YOU GAINING MORE MA
 
 # Importing the required libraries
 
+
+import rospy
+import time
+import cv2
+
+from luminosity_drone.msg import Biolocation
 from swift_msgs.msg import *
 from geometry_msgs.msg import PoseArray
 from std_msgs.msg import Int16
 from std_msgs.msg import Int64
 from std_msgs.msg import Float64
 from pid_tune.msg import PidTune
-import rospy
-import time
+from led_detection import LEDDetector
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 
 class swift:
@@ -36,28 +43,39 @@ class swift:
         rospy.init_node(
             "drone_control"
         )  # initializing ros node with name drone_control
-
+        self.travel_flag = True
+        self.travel_flag2 = False
+        self.stable=False
+        self.bridge = CvBridge()  # Creating an Instance of CV Bridge
+        self.image_sub = rospy.Subscriber("/swift/camera_rgb/image_raw", Image, self.image_callback)  # Subsciber for the Image feed
         # This corresponds to your current position of drone. This value must be updated each time in your whycon callback
         # [x,y,z]
         self.drone_position = [0.0, 0.0, 0.0]
-
+        self.drone_camera = [0, 0]
         # [x_setpoint, y_setpoint, z_setpoint]
         self.point_num = -1
         self.setpoint = [
-            [0, 0, 23],
-            [2, 0, 23],
-            [2, 2, 23],
-            [2, 2, 25],
-            [-5, 2, 25],
-            [-5, -3, 25],
-            [-5, -3, 21],
-            [7, -3, 21],
-            [7, 0, 21],
-            [0, 0, 19],
-        ]  # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
+            [0, 0, 25],
+            [-8, -8, 25],
+            [0, -8, 25],
+            [8, -8, 25],
+            [8, -2, 25],
+            [0, -2, 25],
+            [-8, -2, 25],
+            [-8, 2, 25],
+            [0, 2, 25],
+            [8, 2, 25],
+            [8, 8, 25],
+            [0, 8, 25],
+            [-8, 8, 25],[9, 9, 30],[11,11,35],[11,11,37],
+        ]
+        self.setpoint_2=[]
+        self.point_num_2=0
+        # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
 
         # Declaring a cmd of message type swift_msgs and initializing values
         self.cmd = swift_msgs()
+        self.org = Biolocation()
         self.cmd.rcRoll = 1500
         self.cmd.rcPitch = 1500
         self.cmd.rcYaw = 1500
@@ -81,17 +99,12 @@ class swift:
 
         self.prev_time = rospy.get_time()
 
-        # Hint : Add variables for storing previous errors in each axis, like self.prev_error = [0,0,0] where corresponds to [pitch, roll, throttle]
-        # #		 Add variables for limiting the values like self.max_values = [2000,2000,2000] corresponding to [roll, pitch, throttle]
-        # 													self.min_values = [1000,1000,1000] corresponding to [pitch, roll, throttle]
-        # 																	You can change the upper limit and lower limit accordingly.
-        # ----------------------------------------------------------------------------------------------------------
-
         # This is the sample time in which you need to run pid. Choose any time which you seem fit. Remember the stimulation step time is 50 ms
         # self.sample_time = 0.033 # in seconds
 
         # Publishing /drone_command, /alt_error, /pitch_error, /roll_error
         self.command_pub = rospy.Publisher("/drone_command", swift_msgs, queue_size=1)
+        self.organism_pub = rospy.Publisher("/astrobiolocation", Biolocation, queue_size=1)
         # ------------------------Add other ROS Publishers here-----------------------------------------------------
         self.alt_error_pub = rospy.Publisher("/alt_error", Float64, queue_size=1)
         self.pitch_error_pub = rospy.Publisher("/pitch_error", Float64, queue_size=1)
@@ -102,12 +115,82 @@ class swift:
         # Subscribing to /whycon/poses, /pid_tuning_altitude, /pid_tuning_pitch, pid_tuning_roll
         rospy.Subscriber("whycon/poses", PoseArray, self.whycon_callback)
         rospy.Subscriber("/pid_tuning_altitude", PidTune, self.altitude_set_pid)
+
         # -------------------------Add other ROS Subscribers here----------------------------------------------------
         rospy.Subscriber("pid_tuning_roll", PidTune, self.roll_set_pid)
         rospy.Subscriber("/pid_tuning_pitch", PidTune, self.pitch_set_pid)
 
+        self.image_sub = rospy.Subscriber("/swift/camera_rgb/image_raw", Image, self.image_callback)  # Subsciber for the Image feed
+
         # ------------------------------------------------------------------------------------------------------------
         self.arm()  # ARMING THE DRONE
+
+    def image_callback(self, data):
+        self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  # Converting Image to CV2 compatible datatype
+        try:
+            led_detector = LEDDetector(self.cv_image)
+            print(led_detector.contour_list,"OOOOOOOOOOOOOOOOOOOOOOOOOO")
+
+            if len(led_detector.contour_list) > 1 :
+                if self.stable==False:
+                
+                    if self.travel_flag:
+                    #taking backup 
+                        self.setpoint_2=self.setpoint
+                        self.point_num_2=self.point_num
+                    
+                        self.setpoint.append([self.drone_position[0],self.drone_position[1],25])
+                        self.point_num = len(self.setpoint)-1
+
+                        self.travel_flag= False
+                        self.travel_flag2=True
+
+                #taking centroid of led cluster    
+                    for i in range(len(led_detector.contour_list)):
+                        self.drone_camera[0] += led_detector.contour_list[i][0]
+                        self.drone_camera[1] += led_detector.contour_list[i][1]
+                    self.drone_camera[0] = self.drone_camera[0] / len(led_detector.contour_list)
+                    self.drone_camera[1] = self.drone_camera[1] / len(led_detector.contour_list)
+
+                #moving the led cluster to the centre of the frame
+                    self.setpoint[self.point_num][0]-= (325 - self.drone_camera[0]) * 0.0001
+                    self.setpoint[self.point_num][1]-= (325 - self.drone_camera[1]) * 0.0001
+                    self.setpoint[self.point_num][2]= 25
+
+                #when the cluster is in the centre of the frame
+                    if (self.drone_camera[0]>=324 and self.drone_camera[0]<326) and (self.drone_camera[1]>=324 and self.drone_camera[1]<326):
+
+                    #so that msg is published only one time to astrobiolocation for each cluster
+                        if self.travel_flag2:
+                            if len(led_detector.contour_list)==2:
+                                self.org.organism_type="alien_a"
+                            elif len(led_detector.contour_list)==3:
+                                self.org.organism_type="alien_b"
+                            elif len(led_detector.contour_list)==4:
+                                self.org.organism_type="alien_c"
+
+                            self.org.whycon_x =self.drone_position[0]
+                            self.org.whycon_y =self.drone_position[1]
+                            self.org.whycon_z=self.drone_position[2]
+
+                            self.organism_pub.publish(self.org)
+
+                            self.setpoint=self.setpoint_2
+                            self.point_num=self.point_num_2+1
+
+                            self.travel_flag2= False
+                            self.travel_flag= True
+                            self.stable=True
+            else:
+                self.stable=False
+
+
+
+        except:
+            pass
+        
+
+        cv2.waitKey(1)
 
     # Disarming condition of the drone
     def disarm(self):
@@ -115,6 +198,10 @@ class swift:
         self.cmd.rcAUX2 = 0
         self.cmd.rcAUX3 = 0
         self.cmd.rcAUX4 = 0
+        self.cmd.rcRoll = 0
+        self.cmd.rcPitch = 0
+        self.cmd.rcYaw = 0
+        self.cmd.rcThrottle = 0
         self.command_pub.publish(self.cmd)
         rospy.sleep(1)
 
@@ -148,9 +235,7 @@ class swift:
     # Callback function for /pid_tuning_altitude
     # This function gets executed each time when /tune_pid publishes /pid_tuning_altitude
     def altitude_set_pid(self, alt):
-        self.Kp[2] = (
-            alt.Kp * 0.6
-        )  # #66 This is just for an example. You can change the ratio/fraction value accordingly
+        self.Kp[2] = alt.Kp * 0.6  # #66 This is just for an example. You can change the ratio/fraction value accordingly
         self.Ki[2] = alt.Ki * 0.0008  # 2
         self.Kd[2] = alt.Kd * 0.3  # 2140
 
@@ -169,30 +254,19 @@ class swift:
 
     def pid(self):
         # -----------------------------Write the PID algorithm here--------------------------------------------------------------
-
-        # Steps:
-        # 	1. Compute error in each axis. eg: error[0] = self.drone_position[0] - self.setpoint[0] ,where error[0] corresponds to error in x...
-        # 	2. Compute the error (for proportional), change in error (for derivative) and sum of errors (for integral) in each axis. Refer "Understanding PID.pdf" to understand PID equation.
-        # 	3. Calculate the pid output required for each axis. For eg: calcuate self.out_roll, self.out_pitch, etc.
-        # 	4. Reduce or add this computed output value on the avg value ie 1500. For eg: self.cmd.rcRoll = 1500 + self.out_roll. LOOK OUT FOR SIGN (+ or -). EXPERIMENT AND FIND THE CORRECT SIGN
-        # 		5. Don't run the pid continously. Run the pid only at the a sample time. self.sampletime defined above is for this purpose. THIS IS VERY IMPORTANT.
-        # 	6. Limit the output value and the final command value between the maximum(2000) and minimum(1000)range before publishing. For eg : if self.cmd.rcPitch > self.max_values[1]:
-        # 																														self.cmd.rcPitch = self.max_values[1]
-        # 	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
-        # 	8. Add error_sum
-        if (
-            abs(self.error[0]) <= 0.2
-            and abs(self.error[1]) <= 0.2
-            and abs(self.error[2]) <= 0.13
-        ):
+        if self.setpoint[self.point_num][2]== 37:
+            if abs(self.error[2]<=0.4):
+                self.disarm()
+        if (abs(self.error[0]) <= 0.2 and abs(self.error[1]) <= 0.2 and abs(self.error[2]) <= 0.2):
             if len(self.setpoint) > (self.point_num + 1):
-                self.point_num += 1
+                self.point_num += 1 
 
-                print(self.drone_position, "################", self.point_num)
 
         self.error[0] = -(self.drone_position[0] - self.setpoint[self.point_num][0])
         self.error[1] = self.drone_position[1] - self.setpoint[self.point_num][1]
         self.error[2] = self.drone_position[2] - self.setpoint[self.point_num][2]
+        
+
 
         current_time = rospy.get_time()
         dt = current_time - self.prev_time
@@ -283,5 +357,8 @@ if __name__ == "__main__":
         30
     )  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
     while not rospy.is_shutdown():
-        swift_drone.pid()
+        try:
+            swift_drone.pid()
+        except:
+            pass
         r.sleep()
