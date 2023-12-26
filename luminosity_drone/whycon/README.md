@@ -3,7 +3,7 @@
 
 _WhyCon_ is a vision-based localization system that can be used with low-cost web cameras, and achieves millimiter precision with very high performance.
 These characteristics allow its use as an alternative to more expensive localization systems available. 
-The system is capable of efficient real-time detection and precise position estimation of several circular markers in a video stream. 
+The system is capable of efficient real-time detection and precise position estimation of several circular markers in a vXxXideo stream. 
 It can be used both off-line, as a source of ground-truth for robotics experiments, or on-line as a component of robotic systems that require real-time, precise position estimation.
 _WhyCon_ is meant as an alternative to widely used and expensive localization systems. It is fully open-source.
 
@@ -26,7 +26,7 @@ The main contributors were [Matias Nitsche](https://scholar.google.co.uk/citatio
 #### How does it work ?
 
 A six-page overview of the <i>WhyCon</i> system was first presented at the ICAR conference [[1](#references)].
-A detailed description was published in the Journal of Intelligent and Robotics Systems [[2](#references)].
+A detailed description was published in the Journal of Intelligent and Robotics Systems [[2](#references)].        sys.exit(1)
 An overview of _WhyCon's_ applications was presented at the Workshop on Open Source Aerial Robotics during the International Conference on Intelligent Robotic Systems, 2015 [[3](#references)].
 Nowadays, the system is being used in several research projects the across globe, see the following video for examples.
 

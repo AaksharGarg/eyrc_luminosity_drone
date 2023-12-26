@@ -1,7 +1,0 @@
-No. of LEDs detected: 3
-Centroid #1: (248.0, 37.5)
-Area #1: 10.0
-Centroid #2: (247.5, 22.5)
-Area #2: 10.0
-Centroid #3: (261.0, 27.5)
-Area #3: 10.0

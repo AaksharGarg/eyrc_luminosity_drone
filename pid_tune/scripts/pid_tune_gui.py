@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from tkinter import *
+from Tkinter import *
 from pid_tune.msg import PidTune
 import rospy
 
