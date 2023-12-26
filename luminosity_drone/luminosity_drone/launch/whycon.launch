@@ -23,6 +23,6 @@
   </node>
 
   <node name="transformer" type="transformer" pkg="whycon" output="screen"/>
-  <rosparam file="/home/hra/eyantra_ws/src/luminosity_drone/luminosity_drone/launch/bridge.yaml" />
+  <rosparam file="luminosity_drone/luminosity_drone/launch/bridge.yaml" />
 </launch>
   
