@@ -6,8 +6,8 @@
 
   <group ns="usb_cam">
     <node pkg="image_proc" type="image_proc" name="image_proc">
-      <remap from = "image_raw"   to="/usb_cam/camera_info"/>
-      <remap from = "camera_info" to="/usb_cam/image_raw"/>   
+      <remap from = "image_raw"   to="/usb_cam/image_raw"/>
+      <remap from = "camera_info" to="/usb_cam/camera_info"/>   
     </node> 
   </group>
 
@@ -23,6 +23,6 @@
   </node>
 
   <node name="transformer" type="transformer" pkg="whycon" output="screen"/>
-  <rosparam file="luminosity_drone/luminosity_drone/launch/bridge.yaml" />
+  <rosparam file="$(find luminosity_drone)/launch/bridge.yaml" />
 </launch>
   
